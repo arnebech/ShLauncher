@@ -15,6 +15,7 @@
 
     _log = [NSMutableString stringWithCapacity:5000];
     
+    //subscribe to notification center, so we know when we get new updates through our pipes
     NSNotificationCenter *notificationCenter = [NSNotificationCenter defaultCenter];
     
     [notificationCenter addObserverForName:NSFileHandleDataAvailableNotification object:nil queue:nil
@@ -23,12 +24,17 @@
             NSString* newStr = [[NSString alloc] initWithData:[[note object] availableData] encoding:NSUTF8StringEncoding];
             
             if ([newStr length] > 0) {
+                
+                //continue listening
                 [[note object] waitForDataInBackgroundAndNotify];
+                
+                //update log string and log field
                 [_log appendString:newStr];
                 [_logField setString:_log];
             }
     }];
     
+    //set up basic user defaults, only works for me out of the box
     NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
     NSDictionary *defaults = @{
         @"cwd": @"/Users/bech/Projects/arnebech/SenchaDesigner/web/build-scripts",
@@ -43,23 +49,27 @@
 - (IBAction)onLaunch:(id)sender {
     
     if (_myTask != nil) {
+        //kill the current task if running
         [self onKill:self];
     }
     
-    //construct PATH variable
+    //construct PATH variable, since my scripts requires another executable to run that is not in the default path
     NSString* pathVar = [[[NSUserDefaults standardUserDefaults] stringForKey:@"extraPath"] stringByAppendingString:@":/usr/bin:/bin:/usr/sbin:/sbin"];
     
+    //create task
     NSTask *task = [[NSTask alloc] init];
     [task setLaunchPath:@"/bin/sh"];
     [task setCurrentDirectoryPath:[[NSUserDefaults standardUserDefaults] stringForKey:@"cwd"]];
     [task setArguments:@[[[NSUserDefaults standardUserDefaults] stringForKey:@"script"]]];
     [task setEnvironment:@{@"PATH": pathVar}];
     
+    //set up pipes for the task
     NSPipe *stdPipe = [NSPipe pipe];
     NSPipe *errPipe = [NSPipe pipe];
     [task setStandardOutput:stdPipe];
     [task setStandardError:errPipe];
     
+    //set up async handeling
     [[stdPipe fileHandleForReading] waitForDataInBackgroundAndNotify];
     [[errPipe fileHandleForReading] waitForDataInBackgroundAndNotify];
 
@@ -86,8 +96,8 @@
 
         NSArray* urls = [selectDialog URLs];
         NSURL *url = [urls objectAtIndex:0];
-        NSString *file = [url lastPathComponent];
-        NSString *dir = [[url path] stringByDeletingLastPathComponent];
+        NSString *file = [url lastPathComponent]; //gets filename
+        NSString *dir = [[url path] stringByDeletingLastPathComponent]; //gets the parent dir of the file
         
         [[NSUserDefaults standardUserDefaults] setObject:file forKey:@"script"];
         [[NSUserDefaults standardUserDefaults] setObject:dir forKey:@"cwd"];
