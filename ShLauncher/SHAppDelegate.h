@@ -16,6 +16,7 @@
 @property (assign) IBOutlet NSWindow *window;
 @property NSTask * myTask;
 @property NSMutableString *log;
+
 - (IBAction)onLaunch:(id)sender;
 - (IBAction)onKill:(id)sender;
 - (IBAction)selectScript:(id)sender;

@@ -7,6 +7,7 @@
 //
 
 #import "SHAppDelegate.h"
+#include <errno.h>
 
 @implementation SHAppDelegate
 
@@ -53,15 +54,22 @@
         [self onKill:self];
     }
     
-    //construct PATH variable, since my scripts requires another executable to run that is not in the default path
-    NSString* pathVar = [[[NSUserDefaults standardUserDefaults] stringForKey:@"extraPath"] stringByAppendingString:@":/usr/bin:/bin:/usr/sbin:/sbin"];
+
+    //update environemnt
+    NSMutableDictionary *env = [[NSMutableDictionary alloc] init];
+    [env addEntriesFromDictionary:[[NSProcessInfo processInfo]environment]];
+    
+    NSString *extraPath = [[NSUserDefaults standardUserDefaults] stringForKey:@"extraPath"];
+    NSString *updatedPath = [NSString stringWithFormat:@"%@:%@", extraPath, [env objectForKey:@"PATH"]];
+    
+    [env setObject:updatedPath forKey:@"PATH"];
     
     //create task
     NSTask *task = [[NSTask alloc] init];
     [task setLaunchPath:@"/bin/sh"];
     [task setCurrentDirectoryPath:[[NSUserDefaults standardUserDefaults] stringForKey:@"cwd"]];
     [task setArguments:@[[[NSUserDefaults standardUserDefaults] stringForKey:@"script"]]];
-    [task setEnvironment:@{@"PATH": pathVar}];
+    [task setEnvironment:env];
     
     //set up pipes for the task
     NSPipe *stdPipe = [NSPipe pipe];
@@ -69,7 +77,7 @@
     [task setStandardOutput:stdPipe];
     [task setStandardError:errPipe];
     
-    //set up async handeling
+    //set up async handling
     [[stdPipe fileHandleForReading] waitForDataInBackgroundAndNotify];
     [[errPipe fileHandleForReading] waitForDataInBackgroundAndNotify];
 
